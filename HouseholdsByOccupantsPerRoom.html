@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no"/>
+    <title>Households by occupants per room</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.23/dijit/themes/claro/claro.css">
+    <link rel="stylesheet" href="https://js.arcgis.com/3.23/esri/css/esri.css">
+    <style>
+      html, body, #viewDiv {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #search {
+      	display: block;
+      	position: absolute;
+      	z-index: 3;
+      	top: 20px;
+      	left: 75px;
+      }
+      #sidebar1 {
+      	position: absolute;
+        max-width: 250px;
+      	right: 3%;
+      	top: 5%;
+      	padding: 1em 1em 0 1em;
+      	background: #fff;
+        box-shadow: -4px 4px 4px 0px #959595;
+      	text-align: center;
+        border: solid 2px #000;
+      	border-radius: : 0 0 0 0px;
+      } 
+      #sidebar2 {
+        position: absolute;
+        max-width: 250px;
+        left: 3%;
+        top: 30%;
+        padding: 1em 1em 0 1em;
+        background: #fff;
+        box-shadow: -4px 4px 4px 0px #959595;
+        text-align: center;
+        border: solid 2px #000;
+        border-radius: 0 0 0 0px;
+        visibility: hidden;
+      }
+      #legendDiv {
+        font: 14px verdana;
+      }
+      #popupDiv {
+        font: 14px arial;
+      }     
+    </style>
+    <script src="https://js.arcgis.com/3.23/"></script>
+    <script>
+      var map;
+
+      require([
+        "esri/map",
+        "esri/graphic",
+        "esri/layers/FeatureLayer",
+        "esri/renderers/DotDensityRenderer",
+        "esri/renderers/ScaleDependentRenderer",
+        "esri/symbols/SimpleFillSymbol",
+        "esri/symbols/SimpleLineSymbol",
+        "esri/symbols/SimpleMarkerSymbol",
+        "esri/dijit/Geocoder",
+        "esri/dijit/Legend",
+        "esri/dijit/Scalebar",
+        "esri/dijit/Popup",
+        "esri/dijit/PopupTemplate",
+        "dijit/layout/ContentPane",
+        "dijit/registry",        
+        "dojo/dom",
+        "dojo/dom-construct",
+        "dojo/ready",
+        "dojo/parser",        
+        "dojo/_base/Color",
+        "dojo/_base/connect",
+        "dojo/domReady!"
+        ], 
+        function(
+          Map, Graphic, FeatureLayer, DotDensityRenderer, ScaleDependentRenderer, SimpleFillSymbol, SimpleLineSymbol, SimpleMarkerSymbol, Geocoder, Legend, Scalebar, Popup, PopupTemplate, ContentPane, registry, dom, domConstruct, ready, parser, Color, connect
+        ) {
+          var popupOptions = {
+          	fillSymbol: new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID,
+          		new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 130, 0]), 3),
+              new Color([255, 130, 0, 0.2])        		
+          	)
+          };
+
+          var popup = new Popup(popupOptions, domConstruct.create("div"));
+
+          var CountyPopupTemplate = new PopupTemplate({
+          	title: "Number of Households: {NAME}",
+          	fieldInfos: [
+          	{
+          		fieldName: "B25014_NONCROWD_O",
+          		visible: true,
+          		label: "Owner Occupied: -1"
+          	}, {
+              fieldName: "B25014_NONCROWD_R",
+              visible: true,
+              label: "Renter Occupied: -1"
+            }, {
+          		fieldName: "B25014_MODCROWD_O",
+          		visible: true,
+          		label: "Owner Occupied: 1-1.5"
+          	}, {
+              fieldName: "B25014_MODCROWD_R",
+              visible: true,
+              label: "Renter Occupied: 1-1.5"
+            }, {
+          		fieldName: "B25014_SEVCROWD_O",
+          		visible: true,
+          		label: "Owner Occupied: 1.51+"
+          	}, {
+              fieldName: "B25014_SEVCROWD_R",
+              visible: true,
+              label: "Renter Occupied 1.51+"
+            }
+          	],
+            mediaInfos: [
+               {
+                 type: "columnchart",
+                 value: {
+                   fields: [
+                     "B25014_NONCROWD_O", "B25014_NONCROWD_R", "", "B25014_MODCROWD_O", "B25014_MODCROWD_R", "", "B25014_SEVCROWD_O", "B25014_SEVCROWD_R"
+                  ]                   
+                 }
+               }
+            ]
+          });
+
+          var PlacePopupTemplate = new PopupTemplate({
+          	title: "Number of Households: {NAME}",
+          	fieldInfos: [
+            {
+              fieldName: "B25014_NONCROWD_O",
+              visible: true,
+              label: "Owner Occupied: -1"
+            }, {
+              fieldName: "B25014_NONCROWD_R",
+              visible: true,
+              label: "Renter Occupied: -1"
+            }, {
+              fieldName: "B25014_MODCROWD_O",
+              visible: true,
+              label: "Owner Occupied: 1-1.5"
+            }, {
+              fieldName: "B25014_MODCROWD_R",
+              visible: true,
+              label: "Renter Occupied: 1-1.5"
+            }, {
+              fieldName: "B25014_SEVCROWD_O",
+              visible: true,
+              label: "Owner Occupied: 1.51+"
+            }, {
+              fieldName: "B25014_SEVCROWD_R",
+              visible: true,
+              label: "Renter Occupied 1.51+"
+            }
+          	],
+            mediaInfos: [
+               {
+                 type: "columnchart",
+                 value: {
+                   fields: [
+                     "B25014_NONCROWD_O", "B25014_NONCROWD_R", "", "B25014_MODCROWD_O", "B25014_MODCROWD_R", "", "B25014_SEVCROWD_O", "B25014_SEVCROWD_R"
+                   ]  
+                 }
+               }
+            ]            
+          });
+
+          var TractPopupTemplate = new PopupTemplate({
+          	title: "Tract {TRACT}: Households",
+          	fieldInfos: [
+            {
+              fieldName: "B25014_NONCROWD_O",
+              visible: true,
+              label: "Owner Occupied: -1"
+            }, {
+              fieldName: "B25014_NONCROWD_R",
+              visible: true,
+              label: "Renter Occupied: -1"
+            }, {
+              fieldName: "B25014_MODCROWD_O",
+              visible: true,
+              label: "Owner Occupied: 1-1.5"
+            }, {
+              fieldName: "B25014_MODCROWD_R",
+              visible: true,
+              label: "Renter Occupied: 1-1.5"
+            }, {
+              fieldName: "B25014_SEVCROWD_O",
+              visible: true,
+              label: "Owner Occupied: 1.51+"
+            }, {
+              fieldName: "B25014_SEVCROWD_R",
+              visible: true,
+              label: "Renter Occupied 1.51+"
+            }
+          	],
+            mediaInfos: [
+               {
+                 type: "columnchart",
+                 value: {
+                   fields: [
+                     "B25014_NONCROWD_O", "B25014_NONCROWD_R", "", "B25014_MODCROWD_O", "B25014_MODCROWD_R", "", "B25014_SEVCROWD_O", "B25014_SEVCROWD_R"
+                   ]
+                 }
+               }
+            ]            
+          });
+
+          var CountyLayer = new FeatureLayer("https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/2009_to_2013_ACS_5Year_Socioeconomic_Estimate_Data_by_County/FeatureServer/0", {
+      			mode: FeatureLayer.MODE_ONDEMAND,
+      			infoTemplate: CountyPopupTemplate,
+      			outFields: ["NAME", "B25014_NONCROWD_O", "B25014_MODCROWD_O", "B25014_SEVCROWD_O", "B25014_NONCROWD_R", "B25014_MODCROWD_R", "B25014_SEVCROWD_R"]
+      		});
+
+          var PlaceLayer = new FeatureLayer("https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/2009_to_2013_ACS_5Year_Socioeconomic_Estimate_Data_by_Place/FeatureServer/0",
+              {
+               mode: FeatureLayer.MODE_ONDEMAND,
+               infoTemplate: PlacePopupTemplate,
+               outFields: ["NAME", "B25014_NONCROWD_O", "B25014_MODCROWD_O", "B25014_SEVCROWD_O", "B25014_NONCROWD_R", "B25014_MODCROWD_R", "B25014_SEVCROWD_R"]
+            });
+
+          var TractLayer = new FeatureLayer("https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/2009_to_2013_ACS_5Year_Socioeconomic_Estimate_Data_by_Tract/FeatureServer/0",
+          	  {
+          	  	mode: FeatureLayer.MODE_ONDEMAND,
+          	  	infoTemplate: TractPopupTemplate,
+                outFields: ["TRACT", "B25014_NONCROWD_O", "B25014_MODCROWD_O", "B25014_SEVCROWD_O", "B25014_NONCROWD_R", "B25014_MODCROWD_R", "B25014_SEVCROWD_R"]
+          	});
+          	  
+          var Dots1 = DotDensityRenderer ({
+          	fields: [{
+          		name: "B25014_NONCROWD_O",
+              color: new Color ([165, 195, 255])
+            }, {
+              name: "B25014_MODCROWD_O",
+              color: new Color ([0, 60, 220]) 
+            }, {
+                name: "B25014_SEVCROWD_O",
+                color: new Color ([0, 0, 110])
+            }, { 
+                name: "B25014_NONCROWD_R",
+                color: new Color ([170, 255, 170])
+            }, { 
+                name: "B25014_MODCROWD_R",
+                color: new Color ([0, 130, 30])
+            }, { 
+                name: "B25014_SEVCROWD_R",
+                color: new Color ([0, 80, 0])
+            }],		
+          	dotShape: "circle",
+          	dotValue: 4000,
+          	dotSize: 6
+          });
+
+          var Dots2 = DotDensityRenderer ({
+          	fields: [{
+          		name: "B25014_NONCROWD_O",
+              color: new Color ([165, 195, 255])
+            }, {
+              name: "B25014_MODCROWD_O",
+              color: new Color ([0, 60, 220]) 
+            }, {
+                name: "B25014_SEVCROWD_O",
+                color: new Color ([0, 0, 110])
+            }, { 
+                name: "B25014_NONCROWD_R",
+                color: new Color ([170, 255, 170])
+            }, { 
+                name: "B25014_MODCROWD_R",
+                color: new Color ([0, 130, 30])
+            }, { 
+                name: "B25014_SEVCROWD_R",
+                color: new Color ([0, 80, 0])
+            }],		
+          	dotShape: "circle",
+          	dotValue: 10000,
+          	dotSize: 6
+          });
+
+          var Dots3 = DotDensityRenderer ({
+            fields: [{
+              name: "B25014_NONCROWD_O",
+              color: new Color ([165, 195, 255])
+            }, {
+              name: "B25014_MODCROWD_O",
+              color: new Color ([0, 60, 220]) 
+            }, {
+                name: "B25014_SEVCROWD_O",
+                color: new Color ([0, 0, 110])
+            }, { 
+                name: "B25014_NONCROWD_R",
+                color: new Color ([170, 255, 170])
+            }, { 
+                name: "B25014_MODCROWD_R",
+                color: new Color ([0, 130, 30])
+            }, { 
+                name: "B25014_SEVCROWD_R",
+                color: new Color ([0, 80, 0])
+            }],
+            dotShape: "circle",
+            dotValue: 500,
+            dotSize: 6  
+          });
+
+          var Dots4 = DotDensityRenderer ({
+            fields: [{
+              name: "B25014_NONCROWD_O",
+              color: new Color ([165, 195, 255])
+            }, {
+              name: "B25014_MODCROWD_O",
+              color: new Color ([0, 60, 220]) 
+            }, {
+                name: "B25014_SEVCROWD_O",
+                color: new Color ([0, 0, 110])
+            }, { 
+                name: "B25014_NONCROWD_R",
+                color: new Color ([170, 255, 170])
+            }, { 
+                name: "B25014_MODCROWD_R",
+                color: new Color ([0, 130, 30])
+            }, { 
+                name: "B25014_SEVCROWD_R",
+                color: new Color ([0, 80, 0])
+            }],
+            dotShape: "circle",
+            dotValue: 50,
+            dotSize: 6  
+          });
+
+          var Dots5 = DotDensityRenderer ({
+            fields: [{
+              name: "B25014_NONCROWD_O",
+              color: new Color ([165, 195, 255])
+            }, {
+              name: "B25014_MODCROWD_O",
+              color: new Color ([0, 60, 220]) 
+            }, {
+                name: "B25014_SEVCROWD_O",
+                color: new Color ([0, 0, 110])
+            }, { 
+                name: "B25014_NONCROWD_R",
+                color: new Color ([170, 255, 170])
+            }, { 
+                name: "B25014_MODCROWD_R",
+                color: new Color ([0, 130, 30])
+            }, { 
+                name: "B25014_SEVCROWD_R",
+                color: new Color ([0, 80, 0])
+            }],
+            dotShape: "circle",
+            dotValue: 25,
+            dotSize: 6 
+          });
+
+          var CountyRanges = {rendererInfos: [{ 
+          	"renderer": Dots1,
+            "minZoom": 6,
+            "maxZoom": 8
+          }, {
+            "renderer": Dots2,
+            "minZoom": 2,  
+            "maxZoom": 5 
+          }]};
+          
+          var PlaceRanges = {rendererInfos: [{
+            "renderer": Dots3,
+            "minZoom": 9,
+            "maxZoom": 10  
+          }]};
+
+          var TractRanges = {rendererInfos: [{
+            "renderer": Dots4,
+            "minZoom": 11,
+            "maxZoom": 12  
+          }, {
+          	"renderer": Dots5,
+          	"minZoom": 13,
+          	"maxZoom": 19
+          }]};          
+
+          var map = new Map("viewDiv", {
+            basemap: "gray",  
+            center: [-95.5, 38], 
+            zoom: 5,
+            infoWindow: popup            
+          }); 
+
+          var scalebar = new Scalebar({
+            map: map,
+            scalebarunit: "dual"
+          });
+
+          var geocoder = new Geocoder({
+          	arcgisGeocoder: {
+          		placeholder: "Find an address or place"
+          	},
+          	autoComplete: true,
+          	map: map,	
+          	zoomScale: 10
+          }, dom.byId("search"));
+        
+          function showLocation(evt) {
+          	map.graphics.clear();
+          	var point = evt.result.feature.geometry;
+          	var symbol = new SimpleMarkerSymbol()
+          	    .setStyle(SimpleMarkerSymbol.STYLE_CIRCLE)
+          	    .setColor(new Color ([255, 0, 0]))
+          	    .setSize(10);
+          	var GeocoderPoint =  new Graphic(point, symbol);              	
+          	map.graphics.add(GeocoderPoint); 
+          	map.infoWindow.setContent(evt.result.name);
+            map.infoWindow.show(evt.result.feature.geometry); 
+            map.on("click", removePoint);
+
+            function removePoint() {
+            	map.graphics.remove(GeocoderPoint);
+            } 
+          }
+          
+          
+          var CountyScaleRenderer = new ScaleDependentRenderer(CountyRanges, 
+            {
+          	rangeType: "zoom",          	
+          });
+
+          var PlaceScaleRenderer = new ScaleDependentRenderer(PlaceRanges,
+            {
+            rangeType: "zoom",	
+          });
+
+          var TractScaleRenderer = new ScaleDependentRenderer(TractRanges,
+            {
+            rangeType: "zoom",	
+          }); 
+          
+          var legend = new Legend({
+          	map: map,
+          	layerInfos: [{
+          		layer: CountyLayer,
+          		title: "Owner/Renter Occupied Households by occupants per room as of 2013 mapped by County, Parish and Borough"
+          	}, {
+          		layer: PlaceLayer,
+          		title: "Owner/Renter Occupied Households by occupants per room as of 2013 mapped by City and Census Designated Place"
+          	}, {
+          		layer: TractLayer,
+          	    title: "Owner/Renter Occupied Households by occupants per room as of 2013 mapped by Census Tract"
+          	}]          	
+          }, "legendDiv"); 
+                 
+          CountyLayer.setRenderer(CountyScaleRenderer);
+          PlaceLayer.setRenderer(PlaceScaleRenderer);
+          TractLayer.setRenderer(TractScaleRenderer);
+          map.addLayer(CountyLayer);
+          map.addLayer(PlaceLayer);
+          map.addLayer(TractLayer);
+          map.infoWindow.set("popupWindow", false);
+          legend.startup();          
+          geocoder.on("select", showLocation);
+
+          ready(function(){
+          
+            parser.parse();
+
+            myContentPane = registry.byId("popupDiv");
+
+            function displayPopupContent(feature) {
+              if (feature) {
+                var info = feature.getContent();                
+                myContentPane.set("content", info);
+                document.getElementById("sidebar2").style.visibility = 'visible'
+              }
+            }
+
+            var infowin = map.infoWindow;
+            connect.connect(infowin, "onSelectionChange", function () {
+              displayPopupContent(infowin.getSelectedFeature());
+            });
+
+            connect.connect(infowin, "onClearFeatures", function() {
+              myContentPane.set("content", "");
+              document.getElementById("sidebar2").style.visibility = 'hidden'
+            });
+                      
+          });
+                        
+      });
+    </script>
+  </head>
+
+  <body class="claro">
+  	<div id="search"></div>
+    <div id="viewDiv"></div>
+    <div id="sidebar1">
+    	<div id="legendDiv"></div>
+    </div>
+    <div id="sidebar2">
+      <div id="popupDiv" data-dojo-type="dijit/layout/ContentPane"></div><br>
+    </div>
+  </body>
+</html>

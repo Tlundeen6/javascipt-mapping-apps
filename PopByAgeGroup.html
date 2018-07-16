@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no"/>
+    <title>Population by Age Group</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.23/dijit/themes/claro/claro.css">
+    <link rel="stylesheet" href="https://js.arcgis.com/3.23/esri/css/esri.css">
+    <style>
+      html, body, #viewDiv {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #search {
+      	display: block;
+      	position: absolute;
+      	z-index: 3;
+      	top: 20px;
+      	left: 75px;
+      }
+      #sidebar1 {
+      	position: absolute;
+        max-width: 250px;
+      	right: 3%;
+      	top: 5%;
+      	padding: 1em 1em 0 1em;
+      	background: #fff;
+        box-shadow: -4px 4px 4px 0px #959595;     
+      	text-align: center;
+        border: solid 2px #000;
+      	border-radius: : 0 0 0 0px;
+      }
+      #sidebar2 {
+        position: absolute;
+        max-width: 250px;
+        left: 3%;
+        top: 30%;
+        padding: 1em 1em 0 1em;
+        background: #fff;
+        box-shadow: -4px 4px 4px 0px #959595;
+        text-align: center;
+        border: solid 2px #000;
+        border-radius: 0 0 0 0px;
+        visibility: hidden;
+      } 
+      #legendDiv {
+        font: 14px verdana;
+      }     
+      #popupDiv {
+        font: 14px arial;
+      }
+    </style>
+    <script src="https://js.arcgis.com/3.23/"></script>
+    <script>
+      var map;
+
+      require([
+        "esri/map",
+        "esri/graphic",
+        "esri/layers/FeatureLayer",
+        "esri/renderers/DotDensityRenderer",
+        "esri/renderers/ScaleDependentRenderer",
+        "esri/symbols/SimpleFillSymbol",
+        "esri/symbols/SimpleLineSymbol",
+        "esri/symbols/SimpleMarkerSymbol",
+        "esri/dijit/Geocoder",
+        "esri/dijit/Legend",
+        "esri/dijit/Scalebar",
+        "esri/dijit/Popup",
+        "esri/dijit/PopupTemplate",
+        "dijit/layout/ContentPane",
+        "dijit/registry",         
+        "dojo/dom",
+        "dojo/dom-construct",
+        "dojo/ready",
+        "dojo/parser",
+        "dojo/_base/Color",
+        "dojo/_base/connect",
+        "dojo/domReady!"
+        ], 
+        function(
+          Map, Graphic, FeatureLayer, DotDensityRenderer, ScaleDependentRenderer, SimpleFillSymbol, SimpleLineSymbol, SimpleMarkerSymbol, Geocoder, Legend, Scalebar, Popup, PopupTemplate, ContentPane, registry, dom, domConstruct, ready, parser, Color, connect
+        ) {
+          var popupOptions = {
+          	fillSymbol: new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID,
+          		new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([0, 230, 230]), 3),
+              new Color([0, 230, 230, 0.2])        		
+          	)
+          };
+
+          var popup = new Popup(popupOptions, domConstruct.create("div"));
+
+          var CountyPopupTemplate = new PopupTemplate({
+          	title: "Population: {NAME}",
+          	fieldInfos: [
+          	{
+          		fieldName: "B01001_UNDER17",
+          		visible: true,
+          		label: "-17"
+          	}, {
+          		fieldName: "AGE_18TO24",
+          		visible: true,
+          		label: "18-24"
+          	}, {
+          		fieldName: "AGE_25TO34",
+          		visible: true,
+          		label: "25-34"
+          	}, {
+          		fieldName: "AGE_35TO44",
+          		visible: true,
+          		label: "35-44"
+          	}, {
+              fieldName: "AGE_45TO64",
+              visible: true,
+              label: "45-64"
+            }, {
+              fieldName: "AGE_65UP",
+              visible: true,
+              label: "65+"
+            }
+          	],
+            mediaInfos: [
+               {
+                 type: "columnchart",
+                 value: {
+                   fields: [
+                     "B01001_UNDER17", "AGE_18TO24", "AGE_25TO34", "AGE_35TO44", "AGE_45TO64", "AGE_65UP"
+                   ]
+                 }
+               }
+            ]
+          });
+
+          var PlacePopupTemplate = new PopupTemplate({
+          	title: "Population: {NAME}",
+          	fieldInfos: [
+            {
+              fieldName: "B01001_UNDER17",
+              visible: true,
+              label: "-17"
+            }, {
+              fieldName: "AGE_18TO24",
+              visible: true,
+              label: "18-24"
+            }, {
+              fieldName: "AGE_25TO34",
+              visible: true,
+              label: "25-34"
+            }, {
+              fieldName: "AGE_35TO44",
+              visible: true,
+              label: "35-44"
+            }, {
+              fieldName: "AGE_45TO64",
+              visible: true,
+              label: "45-64"
+            }, {
+              fieldName: "AGE_65UP",
+              visible: true,
+              label: "65+"
+            }
+          	],
+            mediaInfos: [
+               {
+                 type: "columnchart",
+                 value: {
+                   fields: [
+                     "B01001_UNDER17", "AGE_18TO24", "AGE_25TO34", "AGE_35TO44", "AGE_45TO64", "AGE_65UP"
+                   ]
+                 }
+               }
+            ]
+          });
+
+          var TractPopupTemplate = new PopupTemplate({
+          	title: "{NAME}: Population",
+          	fieldInfos: [
+            {
+              fieldName: "B01001_UNDER17",
+              visible: true,
+              label: "-17"
+            }, {
+              fieldName: "AGE_18TO24",
+              visible: true,
+              label: "18-24"
+            }, {
+              fieldName: "AGE_25TO34",
+              visible: true,
+              label: "25-34"
+            }, {
+              fieldName: "AGE_35TO44",
+              visible: true,
+              label: "35-44"
+            }, {
+              fieldName: "AGE_45TO64",
+              visible: true,
+              label: "45-64"
+            }, {
+              fieldName: "AGE_65UP",
+              visible: true,
+              label: "65+"
+            }
+          	],
+            mediaInfos: [
+               {
+                 type: "columnchart",
+                 value: {
+                   fields: [
+                     "B01001_UNDER17", "AGE_18TO24", "AGE_25TO34", "AGE_35TO44", "AGE_45TO64", "AGE_65UP"
+                   ]
+                 }
+               }
+            ]
+          });
+
+          var CountyLayer = new FeatureLayer("https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/2009_to_2013_ACS_5Year_Demographic_Estimate_Data_by_County/FeatureServer/0", {
+      			mode: FeatureLayer.MODE_ONDEMAND,
+      			infoTemplate: CountyPopupTemplate,
+      			outFields: ["NAME", "B01001_UNDER17", "AGE_18TO24", "AGE_25TO34", "AGE_35TO44", "AGE_45TO64", "AGE_65UP"]
+      		});
+
+          var PlaceLayer = new FeatureLayer("https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/2009_to_2013_ACS_5Year_Demographic_Estimate_Data_by_Place/FeatureServer/0",
+              {
+               mode: FeatureLayer.MODE_ONDEMAND,
+               infoTemplate: PlacePopupTemplate,
+               outFields: ["NAME", "B01001_UNDER17", "AGE_18TO24", "AGE_25TO34", "AGE_35TO44", "AGE_45TO64", "AGE_65UP"]
+            });
+
+          var TractLayer = new FeatureLayer("https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/2009_to_2013_ACS_5Year_Demographic_Estimate_Data_by_Tract/FeatureServer/0",
+          	  {
+          	  	mode: FeatureLayer.MODE_ONDEMAND,
+          	  	infoTemplate: TractPopupTemplate,
+                outFields: ["NAME", "B01001_UNDER17", "AGE_18TO24", "AGE_25TO34", "AGE_35TO44", "AGE_45TO64", "AGE_65UP"]
+          	});
+          	  
+          var Dots1 = DotDensityRenderer ({
+          	fields: [{
+          		name: "B01001_UNDER17",
+              color: new Color ([255, 200, 50])
+            }, {
+              name: "AGE_18TO24",
+              color: new Color ([255, 100, 50]) 
+            }, {
+                name: "AGE_25TO34",
+                color: new Color ([255, 50, 50])
+            }, { 
+                name: "AGE_35TO44",
+                color: new Color ([230, 0, 0])
+            }, { 
+                name: "AGE_45TO64",
+                color: new Color ([200, 0, 0])
+            }, { 
+                name: "AGE_65UP",
+                color: new Color ([120, 0, 0])
+            }],		
+          	dotShape: "circle",
+          	dotValue: 10000,
+          	dotSize: 6
+          });
+
+          var Dots2 = DotDensityRenderer ({
+          	fields: [{
+          		name: "B01001_UNDER17",
+              color: new Color ([255, 200, 50])
+            }, {
+              name: "AGE_18TO24",
+              color: new Color ([255, 100, 50]) 
+            }, {
+                name: "AGE_25TO34",
+                color: new Color ([255, 50, 50])
+            }, { 
+                name: "AGE_35TO44",
+                color: new Color ([230, 0, 0])
+            }, { 
+                name: "AGE_45TO64",
+                color: new Color ([200, 0, 0])
+            }, { 
+                name: "AGE_65UP",
+                color: new Color ([120, 0, 0])
+            }],		
+          	dotShape: "circle",
+          	dotValue: 50000,
+          	dotSize: 6
+          });
+
+          var Dots3 = DotDensityRenderer ({
+            fields: [{
+              name: "B01001_UNDER17",
+              color: new Color ([255, 200, 50])
+            }, {
+              name: "AGE_18TO24",
+              color: new Color ([255, 100, 50]) 
+            }, {
+                name: "AGE_25TO34",
+                color: new Color ([255, 50, 50])
+            }, { 
+                name: "AGE_35TO44",
+                color: new Color ([230, 0, 0])
+            }, { 
+                name: "AGE_45TO64",
+                color: new Color ([200, 0, 0])
+            }, { 
+                name: "AGE_65UP",
+                color: new Color ([120, 0, 0])
+            }],
+            dotShape: "circle",
+            dotValue: 1000,
+            dotSize: 6  
+          });
+
+          var Dots4 = DotDensityRenderer ({
+            fields: [{
+              name: "B01001_UNDER17",
+              color: new Color ([255, 200, 50])
+            }, {
+              name: "AGE_18TO24",
+              color: new Color ([255, 100, 50]) 
+            }, {
+                name: "AGE_25TO34",
+                color: new Color ([255, 50, 50])
+            }, { 
+                name: "AGE_35TO44",
+                color: new Color ([230, 0, 0])
+            }, { 
+                name: "AGE_45TO64",
+                color: new Color ([200, 0, 0])
+            }, { 
+                name: "AGE_65UP",
+                color: new Color ([120, 0, 0])
+            }],
+            dotShape: "circle",
+            dotValue: 120,
+            dotSize: 6  
+          });
+
+          var Dots5 = DotDensityRenderer ({
+            fields: [{
+              name: "B01001_UNDER17",
+              color: new Color ([255, 200, 50])
+            }, {
+              name: "AGE_18TO24",
+              color: new Color ([255, 100, 50]) 
+            }, {
+                name: "AGE_25TO34",
+                color: new Color ([255, 50, 50])
+            }, { 
+                name: "AGE_35TO44",
+                color: new Color ([230, 0, 0])
+            }, { 
+                name: "AGE_45TO64",
+                color: new Color ([200, 0, 0])
+            }, { 
+                name: "AGE_65UP",
+                color: new Color ([120, 0, 0])
+            }],
+            dotShape: "circle",
+            dotValue: 60,
+            dotSize: 6  
+          });
+
+          var CountyRanges = {rendererInfos: [{ 
+          	"renderer": Dots1,
+            "minZoom": 6,
+            "maxZoom": 8
+          }, {
+            "renderer": Dots2,
+            "minZoom": 2,  
+            "maxZoom": 5 
+          }]};
+          
+          var PlaceRanges = {rendererInfos: [{
+            "renderer": Dots3,
+            "minZoom": 9,
+            "maxZoom": 10  
+          }]};
+
+          var TractRanges = {rendererInfos: [{
+            "renderer": Dots4,
+            "minZoom": 11,
+            "maxZoom": 12  
+          }, {
+          	"renderer": Dots5,
+          	"minZoom": 13,
+          	"maxZoom": 19
+          }]};          
+
+          var map = new Map("viewDiv", {
+            basemap: "gray",  
+            center: [-95.5, 38], 
+            zoom: 5,
+            infoWindow: popup            
+          }); 
+
+          var scalebar = new Scalebar({
+            map: map,
+            scalebarunit: "dual"
+          });
+
+          var geocoder = new Geocoder({
+          	arcgisGeocoder: {
+          		placeholder: "Find an address or place"
+          	},
+          	autoComplete: true,
+          	map: map,	
+          	zoomScale: 10
+          }, dom.byId("search"));
+        
+          function showLocation(evt) {
+          	map.graphics.clear();
+          	var point = evt.result.feature.geometry;
+          	var symbol = new SimpleMarkerSymbol()
+          	    .setStyle(SimpleMarkerSymbol.STYLE_CIRCLE)
+          	    .setColor(new Color ([0, 230, 230]))
+          	    .setSize(10);
+          	var GeocoderPoint =  new Graphic(point, symbol);              	
+          	map.graphics.add(GeocoderPoint); 
+          	map.infoWindow.setContent(evt.result.name);
+            map.infoWindow.show(evt.result.feature.geometry); 
+            map.on("click", removePoint);
+
+            function removePoint() {
+            	map.graphics.remove(GeocoderPoint);
+            } 
+          }
+          
+          
+          var CountyScaleRenderer = new ScaleDependentRenderer(CountyRanges, 
+            {
+          	rangeType: "zoom",          	
+          });
+
+          var PlaceScaleRenderer = new ScaleDependentRenderer(PlaceRanges,
+            {
+            rangeType: "zoom",	
+          });
+
+          var TractScaleRenderer = new ScaleDependentRenderer(TractRanges,
+            {
+            rangeType: "zoom",	
+          }); 
+          
+          var legend = new Legend({
+          	map: map,
+          	layerInfos: [{
+          		layer: CountyLayer,
+          		title: "Population by age group as of 2013 mapped by County, Parish and Borough"
+          	}, {
+          		layer: PlaceLayer,
+          		title: "Population by age group as of 2013 mapped by City and Census Designated Place"
+          	}, {
+          		layer: TractLayer,
+          	    title: "Population by age group as of 2013 mapped by Census Tract"
+          	}]          	
+          }, "legendDiv"); 
+                 
+          CountyLayer.setRenderer(CountyScaleRenderer);
+          PlaceLayer.setRenderer(PlaceScaleRenderer);
+          TractLayer.setRenderer(TractScaleRenderer);
+          map.addLayer(CountyLayer);
+          map.addLayer(PlaceLayer);
+          map.addLayer(TractLayer);
+          map.infoWindow.set("popupWindow", false);
+          legend.startup();          
+          geocoder.on("select", showLocation);
+
+          ready(function(){
+          
+            parser.parse();
+
+            myContentPane = registry.byId("popupDiv");
+
+            function displayPopupContent(feature) {
+              if (feature) {
+                var info = feature.getContent();                
+                myContentPane.set("content", info);
+                document.getElementById("sidebar2").style.visibility = 'visible'
+              }
+            }
+
+            var infowin = map.infoWindow;
+            connect.connect(infowin, "onSelectionChange", function () {
+              displayPopupContent(infowin.getSelectedFeature());
+            });
+
+            connect.connect(infowin, "onClearFeatures", function() {
+              myContentPane.set("content", "");
+              document.getElementById("sidebar2").style.visibility = 'hidden'
+            });
+
+          });
+                        
+      });
+    </script>
+  </head>
+
+  <body class="claro">
+  	<div id="search"></div>
+    <div id="viewDiv"></div>
+    <div id="sidebar1">
+    	<div id="legendDiv"></div>
+    </div>
+    <div id="sidebar2">
+      <div id="popupDiv" data-dojo-type="dijit/layout/ContentPane"></div><br>
+    </div>
+  </body>
+</html>
